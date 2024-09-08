@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import QuartzCore
 
 
 class Blob : Identifiable, ObservableObject {
@@ -49,6 +50,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
     @StateObject var tracker = BlobTracker()
+    @State private var animationProgress: CGFloat = 0.0
     
     /// <#Description#>
     var body: some View {
@@ -80,20 +82,30 @@ struct ContentView: View {
         } detail: {
             VStack(content: {
                 ZStack(content: {
-                    ForEach(tracker.blobs) { blob in
+                    GeometryReader { geometry in
+                        let path = Path { path in
+                            path.move(to: CGPoint(x: 25, y: 50))
+                            path.addQuadCurve(to: CGPoint(x: 40, y: 55), control: CGPoint(x: 30, y: 20))
+                        }
+                        path.stroke(Color.gray, lineWidth: 2)
+                        ForEach(tracker.blobs) { blob in
+                            RoundedRectangle(cornerRadius:10)
+                                .fill(blob.color)
+                                .blur(radius: 4.0)
+                                .frame(maxWidth: 50, maxHeight: 100.0)
+//                                .offset(CGSize(width: blob.offsetX, height: blob.offsetY))
+                                .offset(x: positionOnPath(path: path, progress: animationProgress).x - 15, y: positionOnPath(path: path, progress: animationProgress).y)
+                        }
                         RoundedRectangle(cornerRadius:10)
-                            .fill(blob.color)
-                            .blur(radius: 4.0)
                             .frame(maxWidth: 50, maxHeight: 100.0)
-                            .offset(CGSize(width: blob.offsetX, height: blob.offsetY))
-                    }
-                    RoundedRectangle(cornerRadius:10)
-                        .frame(maxWidth: 50, maxHeight: 100.0)
+                    }.padding(25)
                 })
                 .frame(width: 300, height: 300)
                 .drawingGroup()
                 .onAppear {
-                    withAnimation(.easeInOut(duration: 1.0).repeatForever()) {
+                    print("Current Point: ")
+                    withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: false)) {
+                        animationProgress = 1.0
                         tracker.randomizePositions()
                         }
                         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -106,7 +118,12 @@ struct ContentView: View {
         }
     }
     
-    
+    func positionOnPath(path: Path, progress: CGFloat) -> CGPoint {
+            let trimmedPath = path.trimmedPath(from: 0, to: progress)
+            let point = trimmedPath.currentPoint ?? .zero
+            print("Current Point: \(point), progress: \(progress)")
+            return point
+        }
 
     private func addItem() {
         withAnimation {
